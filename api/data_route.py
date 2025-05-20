@@ -1,83 +1,128 @@
 # api/data_route.py
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import Header, APIRouter, HTTPException, status
+from pydantic import BaseModel
 from sqlmodel import select, Session
-from typing import Any
+from typing import Annotated, Any
 
 from db.setup import get_db_engine
-from db.tables import Articulo, Vendedor, Sucursal
+from db.tables import Articulo, Vendedor, Sucursal, Pedido
 
 
 AUTH_HEADER: str = "SaGrP9ojGS39hU9ljqbXxQ=="
 
 
-# Crea un APIRouter
+class CommonHeader(BaseModel):
+    x_authentication: str
+
+
 router = APIRouter(
-    prefix="/data",  # Prefijo para todas las rutas en este módulo
-    tags=["Data Operations"], # Etiqueta para la documentación de OpenAPI
+    prefix="/data",
+    tags=["Data Operations"],
     responses={404: {"description": "Not found"}},
 )
 
 
 @router.get("/articulos")
-async def _():
-    """
-    Obtiene todos los registros de la tabla simulada.
-    """
+async def _(headers: Annotated[CommonHeader, Header()]):
+    if not headers.x_authentication == AUTH_HEADER:
+        raise HTTPException(status_code=403, detail="unauthorized")
     with Session(get_db_engine()) as session:
         statement: Any = select(Articulo)
         results: Any = session.exec(statement=statement).all()
     return results
 
 
+@router.get("/articulos/{id}")
+async def _(id: str, headers: Annotated[CommonHeader, Header()]):
+    if not headers.x_authentication == AUTH_HEADER:
+        raise HTTPException(status_code=403, detail="unauthorized")
+    with Session(get_db_engine()) as session:
+        statement: Any = select(Articulo).where(Articulo.id == id)
+        results: Any = session.exec(statement=statement).one()
+    return results
+
+
 @router.get("/sucursales")
-async def _():
-    """
-    Obtiene todos los registros de la tabla simulada.
-    """
+async def _(headers: Annotated[CommonHeader, Header()]):
+    if not headers.x_authentication == AUTH_HEADER:
+        raise HTTPException(status_code=403, detail="unauthorized")
     with Session(get_db_engine()) as session:
         statement: Any = select(Sucursal)
         results: Any = session.exec(statement=statement).all()
     return results
 
 
+@router.get("/sucursales/{id}")
+async def _(id: str, headers: Annotated[CommonHeader, Header()]):
+    if not headers.x_authentication == AUTH_HEADER:
+        raise HTTPException(status_code=403, detail="unauthorized")
+    with Session(get_db_engine()) as session:
+        statement: Any = select(Sucursal).where(Sucursal.id == id)
+        results: Any = session.exec(statement=statement).one()
+    return results
+
+
 @router.get("/vendedores")
-async def _():
-    """
-    Obtiene todos los registros de la tabla simulada.
-    """
+async def _(headers: Annotated[CommonHeader, Header()]):
+    if not headers.x_authentication == AUTH_HEADER:
+        raise HTTPException(status_code=403, detail="unauthorized")
     with Session(get_db_engine()) as session:
         statement: Any = select(Vendedor)
         results: Any = session.exec(statement=statement).all()
     return results
 
 
-# @router.post("/", status_code=status.HTTP_201_CREATED)
-# async def add_data(item: Item):
-#     """
-#     Agrega un nuevo registro a la tabla.
-#     El ID se genera automáticamente.
-#     """
-#     next_id: str = "SOMETHING"
-#     # new_item = item.dict()
-#     # new_item["id"] = next_id
-#     # fake_db.append(new_item)
-#     # next_id += 1
-#     return next_id
+@router.get("/vendedores/{id}")
+async def _(id: str, headers: Annotated[CommonHeader, Header()]):
+    if not headers.x_authentication == AUTH_HEADER:
+        raise HTTPException(status_code=403, detail="unauthorized")
+    with Session(get_db_engine()) as session:
+        statement: Any = select(Vendedor).where(Vendedor.id == id)
+        results: Any = session.exec(statement=statement).one()
+    return results
 
 
-# @router.put("/{item_id}", response_model=Item)
-# async def modify_data(item_id: int, item: Item):
-#     """
-#     Modifica un registro existente por su ID.
-#     """
-#     for index, existing_item in enumerate(dict()):
-#         if existing_item["id"] == item_id:
-#             updated_item = item.dict(exclude_unset=True) # exclude_unset=True para solo actualizar campos enviados
-#             # Asegúrate de que el ID no se modifique si se envía en el body
-#             if "id" in updated_item:
-#                 del updated_item["id"]
-            
-#             # fake_db[index].update(updated_item)
-#             # return fake_db[index]
-#     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Item con ID {item_id} no encontrado")
+@router.put("/articulos/venta/{id}")
+async def _(id: str, cantidad: int, headers: Annotated[CommonHeader, Header()]):
+    if not headers.x_authentication == AUTH_HEADER:
+        raise HTTPException(status_code=403, detail="unauthorized")
+    with Session(get_db_engine()) as session:
+        statement: Any = select(Articulo).where(Articulo.id == id)
+        articulo: Any = session.exec(statement=statement).one()
+        curr_stock: int = articulo.stock
+        if curr_stock - cantidad < 0:
+            raise HTTPException(status_code=400, detail="No hay stock suficiente")
+        articulo.stock = curr_stock - cantidad
+        session.add(articulo)
+        session.commit()
+        session.refresh(articulo)
+    return status.HTTP_202_ACCEPTED
+
+
+@router.post("/pedidos/nuevo")
+async def _(item: Pedido, headers: Annotated[CommonHeader, Header()]):
+    if not headers.x_authentication == AUTH_HEADER:
+        raise HTTPException(status_code=403, detail="unauthorized")
+    sold_office: str = item.sucursal
+    sold_item: str = item.articulo
+    with Session(get_db_engine()) as session:
+        statement: Any = select(Sucursal).where(Sucursal.id == sold_office)
+        result: Any = session.exec(statement=statement).all()
+        if len(result) == 0:
+            raise HTTPException(status_code=400, detail="sucursal inexistente")
+        statement: Any = select(Articulo).where(Articulo.id == sold_item)
+        result: Any = session.exec(statement=statement).all()
+        if len(result) == 0:
+            raise HTTPException(status_code=400, detail="producto inexistente")
+        curr_stock: int = result.stock
+        if curr_stock - item.cantidad < 0:
+            raise HTTPException(status_code=400, detail="no hay stock suficiente")
+        tmp_obj: Pedido = Pedido(
+            sucursal=sold_office,
+            articulo=sold_item,
+            cantidad=item.cantidad
+        )
+        session.add(tmp_obj)
+        session.commit()
+    return status.HTTP_201_CREATED
