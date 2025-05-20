@@ -1,15 +1,14 @@
 # api/data_route.py
 
 from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel
-from typing import Optional
+from sqlmodel import select, Session
+from typing import Any
+
+from db.setup import get_db_engine
+from db.tables import Articulo, Vendedor, Sucursal
 
 
-# Define el modelo de datos para los ítems
-class Item(BaseModel):
-    id: Optional[int] = None # ID opcional para POST (se auto-genera)
-    nombre: str
-    cantidad: int
+AUTH_HEADER: str = "SaGrP9ojGS39hU9ljqbXxQ=="
 
 
 # Crea un APIRouter
@@ -20,51 +19,65 @@ router = APIRouter(
 )
 
 
-@router.get("/", response_model=list[Item])
-async def get_all_data():
+@router.get("/articulos")
+async def _():
     """
     Obtiene todos los registros de la tabla simulada.
     """
-    return ...
+    with Session(get_db_engine()) as session:
+        statement: Any = select(Articulo)
+        results: Any = session.exec(statement=statement).all()
+    return results
 
 
-@router.get("/{item_id}", response_model=Item)
-async def get_data_by_id(item_id: int):
+@router.get("/sucursales")
+async def _():
     """
-    Obtiene un registro específico por su ID.
+    Obtiene todos los registros de la tabla simulada.
     """
-    for item in list():
-        if item["id"] == item_id:
-            return item
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Item con ID {item_id} no encontrado")
+    with Session(get_db_engine()) as session:
+        statement: Any = select(Sucursal)
+        results: Any = session.exec(statement=statement).all()
+    return results
 
 
-@router.post("/", response_model=Item, status_code=status.HTTP_201_CREATED)
-async def add_data(item: Item):
+@router.get("/vendedores")
+async def _():
     """
-    Agrega un nuevo registro a la tabla.
-    El ID se genera automáticamente.
+    Obtiene todos los registros de la tabla simulada.
     """
-    next_id: str = "SOMETHING"
-    # new_item = item.dict()
-    # new_item["id"] = next_id
-    # fake_db.append(new_item)
-    # next_id += 1
-    return next_id
+    with Session(get_db_engine()) as session:
+        statement: Any = select(Vendedor)
+        results: Any = session.exec(statement=statement).all()
+    return results
 
 
-@router.put("/{item_id}", response_model=Item)
-async def modify_data(item_id: int, item: Item):
-    """
-    Modifica un registro existente por su ID.
-    """
-    for index, existing_item in enumerate(dict()):
-        if existing_item["id"] == item_id:
-            updated_item = item.dict(exclude_unset=True) # exclude_unset=True para solo actualizar campos enviados
-            # Asegúrate de que el ID no se modifique si se envía en el body
-            if "id" in updated_item:
-                del updated_item["id"]
+# @router.post("/", status_code=status.HTTP_201_CREATED)
+# async def add_data(item: Item):
+#     """
+#     Agrega un nuevo registro a la tabla.
+#     El ID se genera automáticamente.
+#     """
+#     next_id: str = "SOMETHING"
+#     # new_item = item.dict()
+#     # new_item["id"] = next_id
+#     # fake_db.append(new_item)
+#     # next_id += 1
+#     return next_id
+
+
+# @router.put("/{item_id}", response_model=Item)
+# async def modify_data(item_id: int, item: Item):
+#     """
+#     Modifica un registro existente por su ID.
+#     """
+#     for index, existing_item in enumerate(dict()):
+#         if existing_item["id"] == item_id:
+#             updated_item = item.dict(exclude_unset=True) # exclude_unset=True para solo actualizar campos enviados
+#             # Asegúrate de que el ID no se modifique si se envía en el body
+#             if "id" in updated_item:
+#                 del updated_item["id"]
             
-            # fake_db[index].update(updated_item)
-            # return fake_db[index]
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Item con ID {item_id} no encontrado")
+#             # fake_db[index].update(updated_item)
+#             # return fake_db[index]
+#     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Item con ID {item_id} no encontrado")
