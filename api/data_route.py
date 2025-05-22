@@ -115,7 +115,8 @@ async def _(item: Pedido, headers: Annotated[CommonHeader, Header()]):
         result: Any = session.exec(statement=statement).all()
         if len(result) == 0:
             raise HTTPException(status_code=400, detail="producto inexistente")
-        curr_stock: int = result.stock
+        curr_item: Articulo = result[0]
+        curr_stock: int = curr_item.stock
         if curr_stock - item.cantidad < 0:
             raise HTTPException(status_code=400, detail="no hay stock suficiente")
         tmp_obj: Pedido = Pedido(
